@@ -1,0 +1,141 @@
+---
+title: "Ferrari Stock Time Series Forecasting Using ARIMA"
+author: "Mark Zusman"
+date: "November 8th 2025"
+output: html_notebook
+---
+
+
+
+## Introduction
+
+This notebook performs a full time series analysis of Ferrari N.V. (ticker: RACE) using historical daily closing prices. The dataset was sourced from the Wall Street Journal and covers the period **April 17, 2023 through April 17, 2024**. The goal of this analysis is to evaluate the stationarity of the series, determine an appropriate ARIMA structure, and generate short-term forecasts of the stock’s behavior.
+
+Dataset Link: https://www.wsj.com/market-data/quotes/RACE/historical-prices 
+
+The workflow includes:
+
+- **KPSS Unit Root Testing** to assess stationarity of both the raw and differenced series  
+- **ACF and PACF visualization** to guide ARIMA order selection  
+- **ARIMA model fitting**, including manual models as well as `auto.arima()`  
+- **Residual diagnostics** using the Ljung-Box test and residual plots  
+- **Forecast generation** with confidence intervals using the final selected model
+
+This notebook demonstrates a complete time series modeling pipeline—from data loading and transformation through forecasting—applied to one year of Ferrari stock price data.
+
+
+
+
+```{r}
+# Removing messages and warnings from final output
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+
+# Time-series tests (KPSS), ARIMA modeling & diagnostics, plotting
+
+library(urca)       # Unit-root and cointegration tests (KPSS)
+library(forecast)   # ARIMA, forecast(), ggAcf/ggPacf, checkresiduals()
+library(feasts)     # Additional time-series tools (ACF/PACF)
+library(ggplot2)    # Plotting
+```
+
+
+
+```{r}
+# attaching dataframe
+attach(Ferrari_HistoricalPrices) 
+
+df = Ferrari_HistoricalPrices
+
+```
+## KPSS Unit Root Test
+This test checks whether the original closing price series is stationary.
+A significant p-value means the data is NOT stationary, which is common for stock prices.
+```{r}
+stationary <- ur.kpss(Close, lags="long")
+summary(stationary)
+
+```
+
+## KPSS Test After Differencing 
+
+Differencing removes trends.
+This test checks whether the differenced series is now stationary, which is required for ARIMA modeling.
+
+```{r}
+difference <- diff(Close, lag = 1)
+stationary2 <- ur.kpss(difference, lags="long")
+summary(stationary2)
+
+```
+## ACF and PACF Diagnostics
+
+ACF and PACF plots help determine the ARIMA order:
+
+ACF suggests how many MA terms to include
+
+
+```{r}
+ggAcf(difference)
+```
+
+PACF suggests how many AR terms to include
+```{r}
+# The **PACF** isolates direct lag-to-lag relationships and helps identify **AR (p)** components.
+
+ggPacf(difference)
+```
+
+
+
+## ARIMA Model Fit
+Fit an ARIMA model using the ACF/PACF guidance.
+order = c(0,1,10) means:
+
+AR terms = 0
+
+Differencing = 1 (already makes the series stationary)
+
+MA terms = 10
+
+```{r}
+model <- Arima(Close, order = c(0,1,10))
+
+summary(model)
+```
+
+## Residual Diagnostics
+
+After fitting the ARIMA model, it is essential to check whether the residuals behave like white noise
+```{r}
+checkresiduals(model)
+```
+
+
+## Forecasting
+
+Generate a short-term forecast using the ARIMA model 
+```{r}
+forecast(model) #yields 10 forecast values
+```
+
+visualize the 10 forecast values
+```{r}
+autoplot(forecast(model))
+```
+
+## Auto ARIMA Comparison
+
+Automatically selects the best ARIMA model (based on AICc) for comparison with the manually specified model above.
+```{r}
+auto.arima(Close) 
+```
+
+
+
+
+
+
+
+
